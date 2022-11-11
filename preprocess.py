@@ -7,7 +7,7 @@ Do the preprocessing of the data, including: chop the ingredients into words.
 
 import csv
 import re
-# import tensorflow as tf
+import tensorflow as tf
 import numpy as np
 import pandas as pd
 
@@ -47,7 +47,9 @@ def remove_spaces(s):
     return re.sub(' +', ' ', s)
 
 
+
 def load_data(path, num=10000, ner=False):
+    tokenizer = tf.keras.preprocessing.text.Tokenizer()
     with open(path, 'r', newline='', encoding='gbk') as csvfile:
         reader = csv.DictReader(csvfile)
         if ner:

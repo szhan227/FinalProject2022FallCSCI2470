@@ -10,6 +10,7 @@ import re
 import tensorflow as tf
 import numpy as np
 import pandas as pd
+from collections import Counter
 
 # order, Title, Ingredients, Instructions, ImageName, Cleaned_Ingredients
 #   0  ,   1  ,      2     ,      3      ,     4     ,         5
@@ -57,8 +58,8 @@ def load_data(path, num=10000, ner=False):
             nlp = spacy.load('en_core_web_sm')
         X = []
         Y = []
-        vocab_dish = set()
-        vocab_ingredient = set()
+        vocab_dish = Counter()
+        vocab_ingredient = Counter()
         for i, row in enumerate(reader):
             # print(row)
             ingredients = row['ingredients'].strip('[\']')
@@ -73,10 +74,10 @@ def load_data(path, num=10000, ner=False):
                     ingredients[j] = ' '.join(lst)
 
             Y.append(row['name'])
-            vocab_dish.add(row['name'])
+            vocab_dish.update([row['name']])
             X.append(ingredients)
-            for ingredient in ingredients:
-                vocab_ingredient.add(ingredient)
+
+            vocab_ingredient.update(ingredients)
 
             if num > 0 and i >= num - 1:
                 break
@@ -85,7 +86,8 @@ def load_data(path, num=10000, ner=False):
 
 if __name__ == '__main__':
     X, Y, vocab_dish, vocab_ingredient = load_data('recipes_w_search_terms_truncated.csv', num=100000)
-    print(X.shape)
-    print(Y.shape)
-    print(X)
-    print(len(vocab_dish), len(vocab_ingredient))
+    # print(X.shape)
+    # print(Y.shape)
+    # print(X)
+    for i, (name, count) in enumerate(sorted(vocab_ingredient.items(), key=lambda x: x[1], reverse=True)):
+        print(name, count)

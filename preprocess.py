@@ -1,9 +1,31 @@
 """
 Created by Siyang Zhang
+Affiliation: Brown University
 Date: 2022-11-10
+Updated: 2022-11-22
 
 Do the preprocessing of the data, including: chop the ingredients into words.
+Important:
+1. 'data.p' is the raw data, which is a dictionary of dish name and ingredients list. Do NOT overwrite this file.
+
+2. 'data_lemmatized.p' is the data after tokenization and lemmatization by spacy.
+   After tokenizing and lemmatizing the FULL SIZE data, do NOT overwrite this file.
+
+3. 'prep_data.p' collects information from 'data_lemmatized.p', including
+    'X': X(dish names),
+    'Y': Y(ingradient names),
+    'dish_word2idx': dish_word2idx,
+    'dish_idx2word': dish_idx2word,
+    'dish_vocab_size': dish_vocab_size,
+    'ingredient_word2idx': ingredient_word2idx,
+    'ingredient_idx2word': ingredient_idx2word,
+    'ingredient_vocab_size': ingredient_vocab_size,
+    'window_size': window_size
+
+4. I use words "tokenization" and "lemmatization" interchangeably.
 """
+
+
 
 import csv
 import re
@@ -13,266 +35,257 @@ import pandas as pd
 from collections import Counter
 import pickle
 
-# order, Title, Ingredients, Instructions, ImageName, Cleaned_Ingredients
-#   0  ,   1  ,      2     ,      3      ,     4     ,         5
-
-nums = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '¼', '½', '¾', '⅓', '⅔', '⅛', '⅜', '⅝', '⅞', '⅕', '⅖', '⅗',
-        '⅘', '⅙', '⅚', '⅐', '⅑', '⅒']
-units = ['tsp.', 'Tbsp.', 'lb.', 'oz.', 'cup', 'cups', 'tbsp', 'tsp', 'lb', 'oz', 'g', 'kg', 'ml', 'l', 'gallon',
-         'quart', 'can', 'jar']
-
-
-def extract_ingredients(ingredient_str):
-    pass
-
-
-def remove_commas(s):
-    return re.sub(',.*', '', s)
-
-
-def remove_parentheses(s):
-    parentheses = '[\(\[].*?[\)\]]'
-    return re.sub(parentheses, '', s)
-
-
-def remove_units(s):
-    s = re.split(' +', s)
-    if s[0][0] in nums:
-        if s[1] in units:
-            s = s[2:]
-        else:
-            s = s[1:]
-    return ' '.join(s)
-
-
-def remove_spaces(s):
-    return re.sub(' +', ' ', s)
-
-
-
-def load_data(path, num=10000, ner=False):
-    tokenizer = tf.keras.preprocessing.text.Tokenizer()
-    with open(path, 'r', newline='', encoding='gbk') as csvfile:
-        reader = csv.DictReader(csvfile)
-        if ner:
-            import spacy
-            nlp = spacy.load('en_core_web_sm')
-        X = []
-        Y = []
-        vocab_dish = Counter()
-        vocab_ingredient = Counter()
-        vocab = Counter
-        for i, row in enumerate(reader):
-            # print(row)
-            ingredients = row['ingredients'].strip('[\']')
-            ingredients = ingredients.split('\', \'')
-
-            print(f'\rparsing {i+1} row')
-            if ner:
-
-                for j, ingredient in enumerate(ingredients):
-
-                    ingredient = nlp(ingredient)
-                    lst = []
-                    for token in ingredient:
-                        lst.append(token.lemma_)
-                    vocab.update(lst)
-                    ingredients[j] = ' '.join(lst)
-
-            Y.append(row['name'])
-
-            # dish_vocab = []
-            # for dish_name in row['name']:
-            #     dish_tokens = nlp(dish_name)
-            #     for token in dish_tokens:
-            #         if not token.is_punct:
-            #             dish_vocab.append(token.lemma_)
-            #
-            # vocab_dish.update(dish_vocab)
-            # vocab.update(dish_vocab)
-            #
-            # X.append(ingredients)
-            #
-            # vocab_ingredient.update(ingredients)
-
-            if num > 0 and i >= num - 1:
-                break
-
-        return np.array(X), np.array(Y), vocab_dish, vocab_ingredient, vocab
-
-def load(path):
-    with open(path, 'r', newline='', encoding='gbk') as csvfile:
-        reader = csv.DictReader(csvfile)
-        d = dict()
-        for i, row in enumerate(reader):
-            ingredients = row['ingredients'].strip('[\']')
-            ingredients = ingredients.split('\', \'')
-            d[row['name']] = ingredients
-        return d
-def create_pickle(path):
-    with open(f'data.p', 'wb') as pickle_file:
-        pickle.dump(load(path), pickle_file)
-        # pickle.dump({'name': '1', 'age': '2'}, pickle_file)
-    print(f'Data has been dumped into data.p!')
-
 
 def truncate(arr, size):
     if len(arr) > size:
         return arr[:size + 1]
     else:
-        arr += (size + 1 - len(arr)) * ['<pad>']
-        return arr
+        copy = arr.copy()
+        copy += (size + 1 - len(arr)) * ['<pad>']
+        return copy
 
 
-def preprocess_dish_sentences(sentences, window_size):
-    for i, sentence in enumerate(sentences):
-        sentence_no_punc = re.sub('[^a-zA-Z0-9 ]', ' ', sentence.lower())
-        clean_words = [word for word in sentence_no_punc.split() if ((len(word) > 1) and word.isalpha())]
+def preprocess_sentence_list(sentence_list, window_size):
+    for i, sentence in enumerate(sentence_list):
+        sentence_new = ['<start>'] + sentence[:window_size - 1] + ['<end>']
+        sentence_list[i] = truncate(sentence_new, window_size)
 
-        sentence_new = ['<start>'] + clean_words[:window_size - 1] + ['<end>']
-        sentences[i] = truncate(sentence_new, window_size)
 
-def preprocess_ingredient_sentences(sentences, window_size):
-    for i, sentence in enumerate(sentences):
-        sentence_no_punc = re.sub('[^a-zA-Z0-9 ]', ' ', sentence.lower())
-        clean_words = [word for word in sentence_no_punc.split() if ((len(word) > 1) and word.isalpha())]
-        sentence_new = ['<start>'] + clean_words[:window_size - 1] + ['<end>']
-        sentences[i] = truncate(sentence_new, window_size)
 
-def load_from_data(path=None):
-    if path is None:
-        data = {'Glazed Finger Wings': ['chicken-wings', 'sugar,', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water', 'lemon juice', 'soy sauce'], 'Country Scalloped Potatoes &amp; Ham (Crock Pot)': ['potatoes', 'onion', 'cooked ham', 'country gravy mix', 'cream of mushroom soup', 'water', 'cheddar cheese'], 'Fruit Dream Cookies': ['butter', 'shortening', 'granulated sugar', 'eggs', 'baking soda', 'baking powder', 'vanilla', 'all-purpose flour', 'white chocolate chips', 'orange drink mix', 'colored crystal sugar'], 'Tropical Breakfast Risotti': ['water', 'instant brown rice', 'pineapple tidbits', 'skim evaporated milk', 'raisins', 'sweetened flaked coconut', 'toasted sliced almonds', 'banana'], 'Linguine W/ Olive, Anchovy and Tuna Sauce': ['anchovy fillets', 'tuna packed in oil', 'kalamata olive', 'garlic cloves', 'fresh parsley', 'fresh lemon juice', 'salt %26 pepper', 'olive oil', 'linguine']}
-    else:
-        with open(path, 'rb') as pickle_file:
-            data = pickle.load(pickle_file)
+def preprocess_data_to_X_Y_for_tokenization(data):
+    '''
 
-    import spacy
-    nlp = spacy.load('en_core_web_sm')
-    vocab_dish = Counter()
-    vocab_ingredient = Counter()
-    window_size = 10
+    :parameter data: a dictionary of dish name and ingredients, loaded from data.p
+    the structure looks like the raw_data above
+    :return: X_train, Y_train, pairwisely
+    X_train is a list of dish sentence(with white space and punctuations), 1 dimension(need spacy to do further tokenization)
+    Y_train is a list of list of ingredient-sentence, 2 dimension(need spacy to do further tokenization for each ingredient-sentence)
+    '''
     X = []
     Y = []
-    word2idx = {}
-    vocab_size = 0
-    num_data = len(data)
-    for i, (dish, ingredients) in enumerate(data.items()):
-
-        print(f'\rparsing {i + 1}/{num_data} row', end='')
-        Yi = []
-        for i, ingredient_list in enumerate(ingredients):
-            # ingredient_list = nlp(ingredient)
-            lst = []
-            for token in ingredient:
-                if not token.is_punct:
-                    lst.append(token.lemma_.lower())
-            # vocab_ingredient.update(lst)
-
-            ingredient = ' '.join(lst)
-
-            if ingredient not in word2idx:
-                word2idx[ingredient] = vocab_size
-                vocab_size += 1
-
-            Yi.append(ingredient)
-            ingredients[i] = ingredient
-        vocab_ingredient.update(ingredients)
-        Y.append(truncate(Yi, window_size))
-
-        dish = nlp(dish)
-        d_list = []
-        for token in dish:
-            if not token.is_punct:
-                word = token.lemma_.lower()
-                d_list.append(word)
-
-                if word not in word2idx:
-                    word2idx[word] = vocab_size
-                    vocab_size += 1
-
-        vocab_dish.update(d_list)
-        X.append(truncate(d_list, window_size))
-    print()
-    vocab = vocab_dish + vocab_ingredient
-    print(vocab_dish)
-    print(vocab_ingredient)
-    print(len(vocab), vocab)
-
-    for x,y in zip(X, Y):
-        print(x)
-        print(y)
-        print()
-    X = np.array(X)
-    Y = np.array(Y)
-    idx2word = {i: w for w, i in word2idx.items()}
-    print(X.shape, Y.shape)
-    print(len(word2idx), word2idx)
-    print(idx2word)
-    print(vocab_size)
-
-    # write into file
-    with open(f'prep_data.p', 'wb') as processed_file:
-        pickle.dump(load(path), processed_file)
-        # pickle.dump({'name': '1', 'age': '2'}, pickle_file)
-    print(f'Data has been dumped into prep_data.p!')
-
-
-def load_and_preprocess(path=None):
-    if path is None:
-        data = {'Glazed Finger Wings': ['chicken-wings', 'sugar,', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water', 'lemon juice', 'soy sauce'], 'Country Scalloped Potatoes &amp; Ham (Crock Pot)': ['potatoes', 'onion', 'cooked ham', 'country gravy mix', 'cream of mushroom soup', 'water', 'cheddar cheese'], 'Fruit Dream Cookies': ['butter', 'shortening', 'granulated sugar', 'eggs', 'baking soda', 'baking powder', 'vanilla', 'all-purpose flour', 'white chocolate chips', 'orange drink mix', 'colored crystal sugar'], 'Tropical Breakfast Risotti': ['water', 'instant brown rice', 'pineapple tidbits', 'skim evaporated milk', 'raisins', 'sweetened flaked coconut', 'toasted sliced almonds', 'banana'], 'Linguine W/ Olive, Anchovy and Tuna Sauce': ['anchovy fillets', 'tuna packed in oil', 'kalamata olive', 'garlic cloves', 'fresh parsley', 'fresh lemon juice', 'salt %26 pepper', 'olive oil', 'linguine']}
-    else:
-        with open(path, 'rb') as pickle_file:
-            data = pickle.load(pickle_file)
-
-    vocab_dish = Counter()
-    vocab_ingredient = Counter()
-    window_size = 10
-    X = []
-    Y = []
-    word2idx = {}
-    vocab_size = 0
-    num_data = len(data)
-
-    for i, (dish, ingredients) in enumerate(data.items()):
-        preprocess_ingredient_sentences(ingredients, window_size)
-        # vocab_ingredient.update(ingredients)
-        Y.append(ingredients)
-
+    for dish, ingredients in data.items():
         X.append(dish)
+        Y.append(ingredients)
+    return X, Y
 
-    preprocess_dish_sentences(X, window_size)
 
-    for x, y in zip(X, Y):
-        print(x)
-        print(y)
-        print()
-def test():
+def regex_tokenization_for_X_Y(X, Y, save_to_file=False):
+    '''
+
+    :param X: the preprocessed data X from the above function, should be a list of string(dish sentence)
+    :param Y: the preprocessed data Y from the above function, should be a list of list of string(ingredient-sentence)
+    split the dish sentence and ingredient sentence by space, remove non-alphanumeric characters.
+
+    Pro: Fast
+    Con: vocab size may be too large, vocab distribution may be sparse.
+
+    :return: tokenized X and Y
+    '''
+
+    non_alpha_num = re.compile('[^a-zA-Z0-9 ]')
+
+    for i, (x, y) in enumerate(zip(X, Y)):
+        x = x.lower()
+        x = re.sub(non_alpha_num, '', x)
+        x_tokens = re.split('\s+', x)
+        X[i] = x_tokens
+
+        for j, ingredient in enumerate(y):
+            ingredient = ingredient.lower()
+            ingredient = re.sub(non_alpha_num, '', ingredient)
+            ingredient_tokens = re.split('\s+', ingredient)
+            ingredient = ' '.join(ingredient_tokens)
+            y[j] = ingredient
+
+    data_to_dump = {'X': X, 'Y': Y}
+
+    if save_to_file:
+        with open('data_lemmatized.p', 'wb') as f:
+            pickle.dump(data_to_dump, f)
+
+    return X, Y
+
+
+def spacy_tokenization_for_X_Y(X, Y, save_to_file=False):
+    '''
+
+    :param X: the preprocessed data X from the above function, should be a list of string(dish sentence)
+    :param Y: the preprocessed data Y from the above function, should be a list of list of string(ingredient-sentence)
+    Need to do tokenization for each sentence, and turn it to a lemmatized sentence string:
+    i.e. 'toasted sliced almonds' -> [toast, slice, almond] (after tokenization and remove punctuation)
+    [toast, slice, almond] -> 'toast slice almond' (we treat each ingredient as a word)
+    Hopefully, the word embedding for the two "words": 'olive oil' and 'extra virgin olive oil'
+    are similar after training.
+
+    Pro: make vocabulary size less and less sparse.
+    Con: some ingredient name is not in correct English: ex. we say "sliced almonds" but not "slice almond".
+
+
+    Some detail: spacy tokenization is sensitive to capitalization.
+    for example, when we do nlp('Glazed Finger Wings'), it will output lemmas ['glaze', 'Finger', 'Wings']
+    notice that the s in 'wings' is not truncated, maybe spacy treat it as a special noun.
+    If we first lower() the original string, then the tokenizier may treat every word as a regular noun.
+    But dish name shoud be somehow special, so, just do lower() AFTER tokenization.
+
+
+    :return: lemmatized X and Y
+    '''
+
     import spacy
     nlp = spacy.load('en_core_web_sm')
-    s = '(Papas Rellenas De Picadillo) Meat-Stuffed Potato, Croquettes'
-    tokens = nlp(s)
-    for token in tokens:
-        print(token.lemma_, token.pos_, token.tag_, token.dep_, token.is_punct)
+    for i, (x, y) in enumerate(zip(X, Y)):
+        x_tokens = nlp(x)
+        x_lemmatized = []
+        for token in x_tokens:
+            if not token.is_punct:
+                x_lemmatized.append(token.lemma_.lower())
+        X[i] = x_lemmatized
+
+        for j, ingredient in enumerate(y):
+            ingredient_tokens = nlp(ingredient)
+            ingredient_lemmatized = []
+            for token in ingredient_tokens:
+                if not token.is_punct:
+                    ingredient_lemmatized.append(token.lemma_.lower())
+            ingredient = ' '.join(ingredient_lemmatized)
+            y[j] = ingredient
+
+    data_to_dump = {'X': X, 'Y': Y}
+
+    if save_to_file:
+        with open('data_lemmatized.p', 'wb') as f:
+            pickle.dump(data_to_dump, f)
+
+    return X, Y
+
+
+def preprocess_paired_data(data=None, window_size=20, save_to_file=False):
+    if data is None:
+        X_train = [['Glazed', 'Finger', 'Wings'],
+                   ['Country', 'Scalloped', 'Potatoes', '&amp;', 'Ham', '(Crock', 'Pot)'],
+                   ['Fruit', 'Dream', 'Cookies'], ['Tropical', 'Breakfast', 'Risotti'],
+                   ['Linguine', 'W/', 'Olive,', 'Anchovy', 'and', 'Tuna', 'Sauce']]
+        Y_train = [['chicken-wings', 'sugar,', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water', 'lemon juice',
+                    'soy sauce'],
+                   ['potatoes', 'onion', 'cooked ham', 'country gravy mix', 'cream of mushroom soup', 'water',
+                    'cheddar cheese'],
+                   ['butter', 'shortening', 'granulated sugar', 'eggs', 'baking soda', 'baking powder', 'vanilla',
+                    'all-purpose flour', 'white chocolate chips', 'orange drink mix', 'colored crystal sugar'],
+                   ['water', 'instant brown rice', 'pineapple tidbits', 'skim evaporated milk', 'raisins',
+                    'sweetened flaked coconut', 'toasted sliced almonds', 'banana'],
+                   ['anchovy fillets', 'tuna packed in oil', 'kalamata olive', 'garlic cloves', 'fresh parsley',
+                    'fresh lemon juice', 'salt %26 pepper', 'olive oil', 'linguine']]
+    else:
+        X_train = data[0]
+        Y_train = data[1]
+
+    ingredient_word2idx = {}
+    dish_word2idx = {}
+    ingredient_vocab_size = 0
+    dish_vocab_size = 0
+
+    preprocess_sentence_list(X_train, window_size)
+    preprocess_sentence_list(Y_train, window_size)
+
+    for x, y in zip(X_train, Y_train):
+        for word in x:
+            if word not in dish_word2idx:
+                dish_word2idx[word] = dish_vocab_size
+                dish_vocab_size += 1
+        for word in y:
+            if word not in ingredient_word2idx:
+                ingredient_word2idx[word] = ingredient_vocab_size
+                ingredient_vocab_size += 1
+
+    dish_idx2word = {i: w for w, i in dish_word2idx.items()}
+    ingredient_idx2word = {i: w for w, i in ingredient_word2idx.items()}
+
+    data_to_dump = {'X': X_train,
+                    'Y': Y_train,
+                    'dish_word2idx': dish_word2idx,
+                    'dish_idx2word': dish_idx2word,
+                    'dish_vocab_size': dish_vocab_size,
+                    'ingredient_word2idx': ingredient_word2idx,
+                    'ingredient_idx2word': ingredient_idx2word,
+                    'ingredient_vocab_size': ingredient_vocab_size,
+                    'window_size': window_size
+                    }
+
+    if save_to_file:
+        with open(f'prep_data.p', 'wb') as processed_file:
+            pickle.dump(data_to_dump, processed_file)
+
+    return data_to_dump
+
+
+def pipeline_for_tokenization(data, use_spacy=False, save_to_file=False):
+    '''
+    This function is integerated with all the above functions.
+
+    :param data:  data.p, or same smaller size data with same structure as data.p
+    :param spacy: if True, use spacy to do tokenization, else use regex
+    :return: data with word2idx and idx2word, ready for tensorization
+    '''
+
+    X, Y = preprocess_data_to_X_Y_for_tokenization(data)
+    lemmatizer = spacy_tokenization_for_X_Y if use_spacy else regex_tokenization_for_X_Y
+
+    X, Y = lemmatizer(X, Y, save_to_file=save_to_file)
+    prep_data = preprocess_paired_data(data=(X, Y), save_to_file=save_to_file)
+
+    return prep_data
+
+
+
+def get_data_p():
+    '''
+    Load data.p as a dict for further processing
+    :return:
+    '''
+    with open('data.p', 'rb') as f:
+        data = pickle.load(f)
+    return data
 
 if __name__ == '__main__':
-    # X, Y, vocab_dish, vocab_ingredient, vocab = load_data('recipes_w_search_terms_truncated.csv', num=-1, ner=False)
-    # print(X.shape)
-    # print(Y.shape)
-    # print(X)
-    # for i, (name, count) in enumerate(sorted(vocab.items(), key=lambda x: x[1], reverse=True)):
-    #     print(name, count)
-    # create_pickle('recipes_w_search_terms_truncated.csv')
 
+    raw_data = {
+        'Glazed Finger Wings': ['chicken-wings', 'sugar', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water',
+                                'lemon juice', 'soy sauce'],
+        'Country Scalloped Potatoes &amp; Ham (Crock Pot)': ['potatoes', 'onion', 'cooked ham', 'country gravy mix',
+                                                             'cream of mushroom soup', 'water', 'cheddar cheese'],
+        'Fruit Dream Cookies': ['butter', 'shortening', 'granulated sugar', 'eggs', 'baking soda', 'baking powder',
+                                'vanilla', 'all-purpose flour', 'white chocolate chips', 'orange drink mix',
+                                'colored crystal sugar'],
+        'Tropical Breakfast Risotti': ['water', 'instant brown rice', 'pineapple tidbits', 'skim evaporated milk',
+                                       'raisins', 'sweetened flaked coconut', 'toasted sliced almonds', 'banana'],
+        'Linguine W/ Olive, Anchovy and Tuna Sauce': ['anchovy fillets', 'tuna packed in oil', 'kalamata olive',
+                                                      'garlic cloves', 'fresh parsley', 'fresh lemon juice',
+                                                      'salt %26 pepper', 'olive oil', 'linguine']}
 
-    # with open('data.p', 'rb') as pickle_file:
-    #     data = pickle.load(pickle_file)
-    #     print(data)
+    use_data_p = False
 
-    # load_from_data()
-    load_and_preprocess()
-    # s = ['Papas Rellenas De Picadillo) Meat-Stuffed Potato, Croquettes', 'Glazed Finger Wings', 'Country Scalloped Potatoes &amp; Ham (Crock Pot)', 'Fruit Dream Cookies', 'Tropical Breakfast Risotti', 'Linguine W/ Olive, Anchovy and Tuna Sauce']
-    # preprocess_sentences(s, 10)
-    # print(s)
+    data = get_data_p() if use_data_p else raw_data
+    X, Y = preprocess_data_to_X_Y_for_tokenization(data)
+
+    print('before tokenization:')
+    for x, y in zip(X, Y):
+        print(f'\'{x}\':', y)
+
+    # X, Y = spacy_tokenization_for_X_Y(X, Y)
+    X, Y = regex_tokenization_for_X_Y(X, Y, save_to_file=False)
+
+    print('after tokenization:')
+    for x, y in zip(X, Y):
+        print(f'\'{x}\':', y)
+
+    prep_data = preprocess_paired_data(data=(X, Y), window_size=20, save_to_file=False)
+    X, Y = prep_data['X'], prep_data['Y']
+    print('after preprocessing:')
+    for x, y in zip(X, Y):
+        print(f'\'{x}\':', y)
+    X, Y = np.array(X), np.array(Y)
+    print(X.shape, Y.shape)
+
 
 
 

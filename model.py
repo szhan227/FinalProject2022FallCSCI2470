@@ -56,3 +56,20 @@ class DishIngredientPredictorModel(tf.keras.Model):
         print()
 
         return avg_loss, avg_acc, avg_prp
+
+
+def accuracy_function(prbs, labels, mask):
+
+    correct_classes = tf.argmax(prbs, axis=-1) == labels
+    accuracy = tf.reduce_mean(tf.boolean_mask(tf.cast(correct_classes, tf.float32), mask))
+    return accuracy
+
+
+def loss_function(prbs, labels, mask):
+
+    masked_labs = tf.boolean_mask(labels, mask)
+    masked_prbs = tf.boolean_mask(prbs, mask)
+    scce = tf.keras.losses.sparse_categorical_crossentropy(masked_labs, masked_prbs, from_logits=True)
+    loss = tf.reduce_sum(scce)
+    return loss
+

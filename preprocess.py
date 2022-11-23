@@ -189,6 +189,23 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False):
     preprocess_sentence_list(X_train, window_size)
     preprocess_sentence_list(Y_train, window_size)
 
+    src_word_count = Counter()
+    tgt_word_count = Counter()
+
+    for sentence in X_train:
+        src_word_count.update(sentence)
+    for sentence in Y_train:
+        tgt_word_count.update(sentence)
+
+    def unk_process(sentence_list, counter, min_frequency=50):
+        for i, sentence in enumerate(sentence_list):
+            for j, word in enumerate(sentence):
+                if counter[word] <= min_frequency:
+                    sentence[j] = '<unk>'
+
+    unk_process(X_train, src_word_count, 50)
+    unk_process(Y_train, tgt_word_count, 50)
+
     for x, y in zip(X_train, Y_train):
         for word in x:
             if word not in dish_word2idx:
@@ -256,45 +273,71 @@ def get_data_p():
         data = pickle.load(f)
     return data
 
+
 if __name__ == '__main__':
 
-    raw_data = {
-        'Glazed Finger Wings': ['chicken-wings', 'sugar', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water',
-                                'lemon juice', 'soy sauce'],
-        'Country Scalloped Potatoes &amp; Ham (Crock Pot)': ['potatoes', 'onion', 'cooked ham', 'country gravy mix',
-                                                             'cream of mushroom soup', 'water', 'cheddar cheese'],
-        'Fruit Dream Cookies': ['butter', 'shortening', 'granulated sugar', 'eggs', 'baking soda', 'baking powder',
-                                'vanilla', 'all-purpose flour', 'white chocolate chips', 'orange drink mix',
-                                'colored crystal sugar'],
-        'Tropical Breakfast Risotti': ['water', 'instant brown rice', 'pineapple tidbits', 'skim evaporated milk',
-                                       'raisins', 'sweetened flaked coconut', 'toasted sliced almonds', 'banana'],
-        'Linguine W/ Olive, Anchovy and Tuna Sauce': ['anchovy fillets', 'tuna packed in oil', 'kalamata olive',
-                                                      'garlic cloves', 'fresh parsley', 'fresh lemon juice',
-                                                      'salt %26 pepper', 'olive oil', 'linguine']}
+    with open('prep_data.p', 'rb') as f:
+        d = pickle.load(f)
+    # X = data['X']
+    # Y = data['Y']
+    #
+    # d = preprocess_paired_data(data=(X, Y), save_to_file=True)
+    X = d['X']
+    Y = d['Y']
 
-    use_data_p = False
+    dish_idx2word = d['dish_idx2word']
+    ingredient_idx2word = d['ingredient_idx2word']
+    print(d['dish_vocab_size'], d['ingredient_vocab_size'])
+    # for x, y in zip(X, Y):
+    #     print(x, '->', y)
+    #     for i in x:
+    #         print(dish_idx2word[i], end=' ')
+    #     print()
+    #     for i in y:
+    #         print(ingredient_idx2word[i], end=' ')
+    #     print()
+    #     print()
 
-    data = get_data_p() if use_data_p else raw_data
-    X, Y = preprocess_data_to_X_Y_for_tokenization(data)
 
-    print('before tokenization:')
-    for x, y in zip(X, Y):
-        print(f'\'{x}\':', y)
 
-    # X, Y = spacy_tokenization_for_X_Y(X, Y)
-    X, Y = regex_tokenization_for_X_Y(X, Y, save_to_file=False)
-
-    print('after tokenization:')
-    for x, y in zip(X, Y):
-        print(f'\'{x}\':', y)
-
-    prep_data = preprocess_paired_data(data=(X, Y), window_size=20, save_to_file=False)
-    X, Y = prep_data['X'], prep_data['Y']
-    print('after preprocessing:')
-    for x, y in zip(X, Y):
-        print(f'\'{x}\':', y)
-    X, Y = np.array(X), np.array(Y)
-    print(X.shape, Y.shape)
+    # pipeline_for_tokenization(get_data_p(), use_spacy=True, save_to_file=True)
+    # raw_data = {
+    #     'Glazed Finger Wings': ['chicken-wings', 'sugar', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water',
+    #                             'lemon juice', 'soy sauce'],
+    #     'Country Scalloped Potatoes &amp; Ham (Crock Pot)': ['potatoes', 'onion', 'cooked ham', 'country gravy mix',
+    #                                                          'cream of mushroom soup', 'water', 'cheddar cheese'],
+    #     'Fruit Dream Cookies': ['butter', 'shortening', 'granulated sugar', 'eggs', 'baking soda', 'baking powder',
+    #                             'vanilla', 'all-purpose flour', 'white chocolate chips', 'orange drink mix',
+    #                             'colored crystal sugar'],
+    #     'Tropical Breakfast Risotti': ['water', 'instant brown rice', 'pineapple tidbits', 'skim evaporated milk',
+    #                                    'raisins', 'sweetened flaked coconut', 'toasted sliced almonds', 'banana'],
+    #     'Linguine W/ Olive, Anchovy and Tuna Sauce': ['anchovy fillets', 'tuna packed in oil', 'kalamata olive',
+    #                                                   'garlic cloves', 'fresh parsley', 'fresh lemon juice',
+    #                                                   'salt %26 pepper', 'olive oil', 'linguine']}
+    #
+    # use_data_p = False
+    #
+    # data = get_data_p() if use_data_p else raw_data
+    # X, Y = preprocess_data_to_X_Y_for_tokenization(data)
+    #
+    # print('before tokenization:')
+    # for x, y in zip(X, Y):
+    #     print(f'\'{x}\':', y)
+    #
+    # # X, Y = spacy_tokenization_for_X_Y(X, Y)
+    # X, Y = regex_tokenization_for_X_Y(X, Y, save_to_file=False)
+    #
+    # print('after tokenization:')
+    # for x, y in zip(X, Y):
+    #     print(f'\'{x}\':', y)
+    #
+    # prep_data = preprocess_paired_data(data=(X, Y), window_size=20, save_to_file=False)
+    # X, Y = prep_data['X'], prep_data['Y']
+    # print('after preprocessing:')
+    # for x, y in zip(X, Y):
+    #     print(f'\'{x}\':', y)
+    # X, Y = np.array(X), np.array(Y)
+    # print(X.shape, Y.shape)
 
 
 

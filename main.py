@@ -24,13 +24,12 @@ def train_model(model, src_inputs, tgt_inputs, pad_idx, args, valid):
 
     return stats
 
+
 if __name__ == '__main__':
 
     with open('prep_data.p', 'rb') as f:
         data = pickle.load(f)
 
-    # data = pipeline_for_tokenization(data, use_spacy=True, save_to_file=True)
-    print(data.keys())
     src_inputs = data['X']
     tgt_inputs = data['Y']
     src_w2i = data['dish_word2idx']
@@ -46,8 +45,8 @@ if __name__ == '__main__':
     tgt_inputs = tf.convert_to_tensor(tgt_inputs)
 
     model = RNN(src_vocab_size, tgt_vocab_size, hidden_size=256, window_size=20)
-    output = model(src_inputs[:,], tgt_inputs)
+    output = model(src_inputs[:100], tgt_inputs[:100])
     print(output.shape)
-    print(tgt_vocab_size)
+    print(src_vocab_size)
 
 

@@ -7,8 +7,8 @@ class RNN(tf.keras.layers.Layer):
     def __init__(self, src_vocab_size, tgt_vocab_size, hidden_size, window_size, **kwargs):
 
         super().__init__(**kwargs)
-        self.src_vocab_size  = src_vocab_size
-        self.tgt_vocab_size  = tgt_vocab_size
+        self.src_vocab_size = src_vocab_size
+        self.tgt_vocab_size = tgt_vocab_size
         self.hidden_size = hidden_size
         self.window_size = window_size
 

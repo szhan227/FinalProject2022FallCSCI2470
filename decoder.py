@@ -70,7 +70,7 @@ class RNN(tf.keras.layers.Layer):
 #         x = self.norm(x)
 #         return x
 
-class Transformer(tf.kears.Model):
+class Transformer(tf.keras.Model):
 
     def __init__(self,
                  num_decoder_layers,

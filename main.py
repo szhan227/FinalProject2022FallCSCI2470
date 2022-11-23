@@ -31,5 +31,17 @@ if __name__ == '__main__':
 
     # prep_data = pipeline_for_tokenization(data, use_spacy=True, save_to_file=True)
     print(data.keys())
+    src_inputs = data['X']
+    tgt_inputs = data['Y']
+    src_w2i = data['dish_word2idx']
+    tgt_w2i = data['ingredient_word2idx']
+    src_i2w = data['dish_idx2word']
+    tgt_i2w = data['ingredient_idx2word']
+    src_vocab_size = data['dish_vocab_size']
+    tgt_vocab_size = data['ingredient_vocab_size']
+
+    from decoder import RNN
+
+    print(src_vocab_size, tgt_vocab_size)
 
 

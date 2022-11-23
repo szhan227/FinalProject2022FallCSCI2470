@@ -29,7 +29,7 @@ if __name__ == '__main__':
     with open('prep_data.p', 'rb') as f:
         data = pickle.load(f)
 
-    # prep_data = pipeline_for_tokenization(data, use_spacy=True, save_to_file=True)
+    # data = pipeline_for_tokenization(data, use_spacy=True, save_to_file=True)
     print(data.keys())
     src_inputs = data['X']
     tgt_inputs = data['Y']
@@ -42,6 +42,12 @@ if __name__ == '__main__':
 
     from decoder import RNN
 
-    print(src_vocab_size, tgt_vocab_size)
+    src_inputs = tf.convert_to_tensor(src_inputs)
+    tgt_inputs = tf.convert_to_tensor(tgt_inputs)
+
+    model = RNN(src_vocab_size, tgt_vocab_size, hidden_size=256, window_size=20)
+    output = model(src_inputs[:,], tgt_inputs)
+    print(output.shape)
+    print(tgt_vocab_size)
 
 

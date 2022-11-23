@@ -35,8 +35,8 @@ class RNN(tf.keras.layers.Layer):
         )
 
         self.classifier = tf.keras.Sequential([
-            tf.keras.layers.Dense(units=int(2 * self.vocab_size), activation='relu'),
-            tf.keras.layers.Dense(units=self.vocab_size)
+            tf.keras.layers.Dense(units=int(2 * self.tgt_vocab_size), activation='relu'),
+            tf.keras.layers.Dense(units=self.tgt_vocab_size)
         ])
 
 
@@ -44,11 +44,11 @@ class RNN(tf.keras.layers.Layer):
 
         src_embedings = self.src_embedding(src_inputs)
 
-        memory = self.encoder(src_embedings)
+        encoder_output, encoder_state = self.encoder(src_embedings)
 
         tgt_embedings = self.tgt_embedding(tgt_inputs)
 
-        decoder_output, decoder_state = self.decoder(tgt_embedings, initial_state=memory)
+        decoder_output, decoder_state = self.decoder(tgt_embedings, initial_state=encoder_state)
 
         logits = self.classifier(decoder_output)
 

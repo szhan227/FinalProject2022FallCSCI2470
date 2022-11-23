@@ -202,6 +202,10 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False):
     dish_idx2word = {i: w for w, i in dish_word2idx.items()}
     ingredient_idx2word = {i: w for w, i in ingredient_word2idx.items()}
 
+    for i, (x, y) in enumerate(zip(X_train, Y_train)):
+        X_train[i] = [dish_word2idx[word] for word in x]
+        Y_train[i] = [ingredient_word2idx[word] for word in y]
+
     data_to_dump = {'X': X_train,
                     'Y': Y_train,
                     'dish_word2idx': dish_word2idx,
@@ -229,10 +233,14 @@ def pipeline_for_tokenization(data, use_spacy=False, save_to_file=False):
     :return: data with word2idx and idx2word, ready for tensorization
     '''
 
+    # pairwisely arrange the data
     X, Y = preprocess_data_to_X_Y_for_tokenization(data)
-    lemmatizer = spacy_tokenization_for_X_Y if use_spacy else regex_tokenization_for_X_Y
 
+    # tokenize the data
+    lemmatizer = spacy_tokenization_for_X_Y if use_spacy else regex_tokenization_for_X_Y
     X, Y = lemmatizer(X, Y, save_to_file=save_to_file)
+
+    # makeup data into tensor format
     prep_data = preprocess_paired_data(data=(X, Y), save_to_file=save_to_file)
 
     return prep_data

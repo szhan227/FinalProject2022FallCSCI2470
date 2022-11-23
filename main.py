@@ -1,8 +1,35 @@
 import re
+import pickle
+
+import argparse
+import numpy as np
+import pickle
+import tensorflow as tf
+from preprocess import pipeline_for_tokenization
+
+def train_model(model, src_inputs, tgt_inputs, pad_idx, args, valid):
+    '''Trains model and returns model statistics'''
+    stats = []
+    # print('train_model is called!')
+    try:
+        for epoch in range(args.epochs):
+            stats += [model.train(tgt_inputs, src_inputs, pad_idx, batch_size=args.batch_size)]
+            if args.check_valid:
+                model.test(valid[0], valid[1], pad_idx, batch_size=args.batch_size)
+    except KeyboardInterrupt as e:
+        if epoch > 0:
+            print("Key-value interruption. Trying to early-terminate. Interrupt again to not do that!")
+        else:
+            raise e
+
+    return stats
 
 if __name__ == '__main__':
-    X_train = [['Glazed', 'Finger', 'Wings'], ['Country', 'Scalloped', 'Potatoes', '&amp;', 'Ham', '(Crock', 'Pot)'], ['Fruit', 'Dream', 'Cookies'], ['Tropical', 'Breakfast', 'Risotti'], ['Linguine', 'W/', 'Olive,', 'Anchovy', 'and', 'Tuna', 'Sauce']]
-    Y_train = [['chicken-wings', 'sugar,', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water', 'lemon juice', 'soy sauce'], ['potatoes', 'onion', 'cooked ham', 'country gravy mix', 'cream of mushroom soup', 'water', 'cheddar cheese'], ['butter', 'shortening', 'granulated sugar', 'eggs', 'baking soda', 'baking powder', 'vanilla', 'all-purpose flour', 'white chocolate chips', 'orange drink mix', 'colored crystal sugar'], ['water', 'instant brown rice', 'pineapple tidbits', 'skim evaporated milk', 'raisins', 'sweetened flaked coconut', 'toasted sliced almonds', 'banana'], ['anchovy fillets', 'tuna packed in oil', 'kalamata olive', 'garlic cloves', 'fresh parsley', 'fresh lemon juice', 'salt %26 pepper', 'olive oil', 'linguine']]
 
-    for x, y in zip(X_train, Y_train):
-        print(x, y)
+    with open('prep_data.p', 'rb') as f:
+        data = pickle.load(f)
+
+    # prep_data = pipeline_for_tokenization(data, use_spacy=True, save_to_file=True)
+    print(data.keys())
+
+

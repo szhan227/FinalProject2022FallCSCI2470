@@ -133,7 +133,9 @@ def spacy_tokenization_for_X_Y(X, Y, save_to_file=False):
 
     import spacy
     nlp = spacy.load('en_core_web_sm')
+    total = len(X)
     for i, (x, y) in enumerate(zip(X, Y)):
+        print(f'\r {i + 1}/{total} spacy lemmatization', end='')
         x_tokens = nlp(x)
         x_lemmatized = []
         for token in x_tokens:
@@ -149,7 +151,7 @@ def spacy_tokenization_for_X_Y(X, Y, save_to_file=False):
                     ingredient_lemmatized.append(token.lemma_.lower())
             ingredient = ' '.join(ingredient_lemmatized)
             y[j] = ingredient
-
+    print()
     data_to_dump = {'X': X, 'Y': Y}
 
     if save_to_file:

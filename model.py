@@ -4,19 +4,23 @@ import tensorflow as tf
 
 class DishIngredientPredictorModel(tf.keras.Model):
 
-    def __init__(self, encoder, decoder, **kwargs):
+    def __init__(self, predictor, **kwargs):
         super().__init__(**kwargs)
-        self.encoder = encoder
-        self.decoder = decoder
+        self.predictor = predictor
 
 
     @tf.function
     def call(self, dish_names, ingredient_names):
-        encodeded_dish_names = self.encoder(dish_names)
-        output = self.decoder(encodeded_dish_names, ingredient_names)
-        return output
+        return self.predictor(dish_names, ingredient_names)
+
+
+    def compile(self, optimizer, loss, metrics):
+        self.optimizer = optimizer
+        self.loss_function = loss
+        self.accuracy_function = metrics[0]
 
     def train(self, train_ingredients, train_dishes, padding_index, batch_size=100):
+
         avg_loss = 0
         avg_acc = 0
         avg_prp = 0
@@ -31,15 +35,24 @@ class DishIngredientPredictorModel(tf.keras.Model):
             decoder_labels = train_dishes[start:end, 1:]
             with tf.GradientTape() as tape:
                 predictions = self.call(decoder_input, batch_ingredients)
-                loss = self.loss_function(decoder_labels, predictions)
-                accuracy = self.accuracy_function(decoder_labels, predictions)
-                perplexity = self.perplexity_function(decoder_labels, predictions)
+                mask = decoder_labels != padding_index
+                loss = self.loss_function(predictions, decoder_labels, mask)
+
             gradients = tape.gradient(loss, self.trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+
+            num_predictions = tf.reduce_sum(tf.cast(mask, tf.float32))
+            accuracy = self.accuracy_function(predictions, decoder_labels, mask)
+
             total_loss += loss
-            total_seen += 1
+            total_seen += num_predictions
             total_correct += accuracy
+
             avg_loss = total_loss / total_seen
             avg_acc = total_correct / total_seen
-            avg_prp = perplexity
-            print(f'Batch {index+1}/{num_batches} - loss: {avg_loss:.4f} - acc: {avg_acc:.4f} - prp: {avg_prp:.4f}')
+            avg_prp = np.exp(avg_loss)
+            print(f'\rTrain {index+1}/{num_batches} - loss: {avg_loss:.4f} - acc: {avg_acc:.4f} - prp: {avg_prp:.4f}', end='')
+
+        print()
+
+        return avg_loss, avg_acc, avg_prp

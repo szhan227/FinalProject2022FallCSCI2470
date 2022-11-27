@@ -161,7 +161,7 @@ def spacy_tokenization_for_X_Y(X, Y, save_to_file=False):
     return X, Y
 
 
-def preprocess_paired_data(data=None, window_size=20, save_to_file=False):
+def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_name='prep_data.p', data_size=None, min_frequency=50):
     if data is None:
         X_train = [['Glazed', 'Finger', 'Wings'],
                    ['Country', 'Scalloped', 'Potatoes', '&amp;', 'Ham', '(Crock', 'Pot)'],
@@ -181,6 +181,10 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False):
         X_train = data[0]
         Y_train = data[1]
 
+    if data_size is not None:
+        X_train = X_train[:data_size]
+        Y_train = Y_train[:data_size]
+
     ingredient_word2idx = {}
     dish_word2idx = {}
     ingredient_vocab_size = 0
@@ -197,14 +201,21 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False):
     for sentence in Y_train:
         tgt_word_count.update(sentence)
 
-    def unk_process(sentence_list, counter, min_frequency=50):
+
+    def unk_process(sentence_list, counter, min_frequency):
+        unk = 0
         for i, sentence in enumerate(sentence_list):
             for j, word in enumerate(sentence):
                 if counter[word] <= min_frequency:
                     sentence[j] = '<unk>'
+                    unk += counter[word]
+        return unk
 
-    unk_process(X_train, src_word_count, 50)
-    unk_process(Y_train, tgt_word_count, 50)
+    unk_src = unk_process(X_train, src_word_count, min_frequency)
+    unk_tgt = unk_process(Y_train, tgt_word_count, min_frequency)
+
+    print(f'unk_src: {unk_src}, unk_tgt: {unk_tgt}')
+    print(f'total src words: {sum(src_word_count.values())}, total tgt words: {sum(tgt_word_count.values())}')
 
     for x, y in zip(X_train, Y_train):
         for word in x:
@@ -235,7 +246,7 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False):
                     }
 
     if save_to_file:
-        with open(f'prep_data.p', 'wb') as processed_file:
+        with open(file_name, 'wb') as processed_file:
             pickle.dump(data_to_dump, processed_file)
 
     return data_to_dump
@@ -276,8 +287,10 @@ def get_data_p():
 
 if __name__ == '__main__':
 
-    with open('prep_data.p', 'rb') as f:
+    with open('data_lemmatized2.p', 'rb') as f:
         d = pickle.load(f)
+
+
     # X = data['X']
     # Y = data['Y']
     #
@@ -285,9 +298,12 @@ if __name__ == '__main__':
     X = d['X']
     Y = d['Y']
 
-    dish_idx2word = d['dish_idx2word']
-    ingredient_idx2word = d['ingredient_idx2word']
-    print(d['dish_vocab_size'], d['ingredient_vocab_size'])
+    data = preprocess_paired_data(data=(X, Y), save_to_file=True, file_name='prep_data_10000.p', data_size=10000, min_frequency=10)
+    print(data.keys())
+    #
+    # dish_idx2word = d['dish_idx2word']
+    # ingredient_idx2word = d['ingredient_idx2word']
+    # print(d['dish_vocab_size'], d['ingredient_vocab_size'])
     # for x, y in zip(X, Y):
     #     print(x, '->', y)
     #     for i in x:

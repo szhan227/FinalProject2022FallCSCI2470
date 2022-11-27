@@ -1,3 +1,5 @@
+import copy
+
 import numpy as np
 import tensorflow as tf
 
@@ -39,6 +41,17 @@ class RNN(tf.keras.layers.Layer):
             tf.keras.layers.Dense(units=self.tgt_vocab_size)
         ])
 
+    def encode(self, src_inputs):
+
+        src_embeddings = self.src_embedding(src_inputs)
+        encoder_output, encoder_state = self.encoder(src_embeddings)
+        return encoder_output, encoder_state
+
+    def decode(self, tgt_inputs, encoder_states):
+        tgt_embedings = self.tgt_embedding(tgt_inputs)
+        decoder_output, decoder_state = self.decoder(tgt_embedings, initial_state=encoder_states)
+        logits = self.classifier(decoder_output)
+        return logits
 
     def call(self, src_inputs, tgt_inputs):
 
@@ -83,31 +96,79 @@ class Transformer(tf.keras.Model):
 
         super(Transformer, self).__init__()
         self.encoder = ManualEncoder(emb_size, nhead, src_vocab_size, dim_feedforward, dropout)
+        self.decoder = ManualDecoder(emb_size, nhead, tgt_vocab_size, dim_feedforward, dropout)
 
 
 class ManualEncoder(tf.keras.Model):
 
-    def __init__(self, **kwargs):
+    def __init__(self, layer, N, **kwargs):
         super(ManualEncoder, self).__init__(**kwargs)
-        pass
+        self.layers = [copy.deepcopy(layer) for _ in range(N)]
+        self.norm = tf.keras.layers.LayerNormalization(layer.size)
+
+    def call(self, x, src_mask, padding_mask):
+        for layer in self.layers:
+            x = layer(x, src_mask, padding_mask)
+        x = self.norm(x)
+        return x
+
+
+class PositionwiseFeedForward(tf.keras.layers.Layer):
+
+    def __init__(self, d_model, d_ff, dropout=0.1):
+        super(PositionwiseFeedForward, self).__init__()
+        self.w_1 = tf.keras.layers.Dense(d_ff, activation='relu')
+        self.w_2 = tf.keras.layers.Dense(d_model)
+        self.dropout = tf.keras.layers.Dropout(dropout)
+
+    def call(self, x):
+        return self.w_2(self.dropout(self.w_1(x)))
 
 
 class EncoderLayer(tf.keras.layers.Layer):
 
-    def __init__(self, size, nhead, **kwargs):
+    def __init__(self, emb_sz, nhead, ff_sz, dropout=0.1, **kwargs):
         super(EncoderLayer, self).__init__(**kwargs)
 
-        self.self_attention = tf.keras.layers.MultiHeadAttention(nhead, size, dropout=dropout)
-        self.feed_forward = tf.keras.layers.Dense(size)
+        self.self_attention = tf.keras.layers.MultiHeadAttention(nhead, emb_sz)
+        self.feed_forward = PositionwiseFeedForward
 
-        self.norm = tf.keras.layers.LayerNorm(size)
-        # self.dropout_fn = tf.keras.layers.Dropout(dropout)
-        self.size = size
+        self.norm = tf.keras.layers.LayerNorm(ff_sz)
+        self.dropout_fn = tf.keras.layers.Dropout(dropout)
+        self.size = emb_sz
 
-    def call(self, x, memory, src_padding_mask=None, tgt_mask=None, tgt_padding_mask=None):
+    def call(self, x, src_mask, padding_mask):
         y = self.norm(x)
-        y, _ = self.self_attention(y, y, y, tgt_mask)
-        x = x + y
+        y, _ = self.self_attention(y, y, y, attention_mask=padding_mask)
+        x = x + self.dropout_fn(y)
+
+        y = self.norm(x)
+        ff = self.feed_forward(y)
+        x = x + ff
+
+        return x
+
+class DecoderLayer(tf.keras.layers.Layer):
+
+    def __init__(self, emb_sz, nhead, ff_sz, dropout=0.1, **kwargs):
+        super(DecoderLayer, self).__init__(**kwargs)
+
+        self.self_attention = tf.keras.layers.MultiHeadAttention(nhead, emb_sz)
+        self.cross_attention = tf.keras.layers.MultiHeadAttention(nhead, emb_sz)
+        self.feed_forward = PositionwiseFeedForward(emb_sz, ff_sz, dropout)
+
+        self.norm = tf.keras.layers.LayerNorm(emb_sz)
+        self.dropout_fn = tf.keras.layers.Dropout(dropout)
+        self.size = emb_sz
+
+    def call(self, x, memory, src_padding_mask, tgt):
+        y = self.norm(x)
+        y, _ = self.self_attention(y, y, y, src_padding_mask)
+        x = x + self.dropout_fn(y)
+
+        y = self.norm(x)
+        y, _ = self.cross_attention(y, memory, memory, src_padding_mask)
+        x = x + self.dropout_fn(y)
 
         y = self.norm(x)
         ff = self.feed_forward(y)
@@ -117,30 +178,16 @@ class EncoderLayer(tf.keras.layers.Layer):
 
 class ManualDecoder(tf.keras.Model):
 
-    def __init__(self, size, dropout, nhead, **kwargs):
-        super(ManualDecoder, self).__init__(**kwargs)
-        self.self_attention = tf.keras.layers.MultiHeadAttention(nhead, size, dropout=dropout)
-        self.cross_attention = tf.keras.layers.MultiHeadAttention(nhead, size, dropout=dropout)
-        self.feed_forward = tf.keras.layers.Dense(size)
+        def __init__(self, layer, N, **kwargs):
+            super(ManualDecoder, self).__init__(**kwargs)
+            self.layers = [copy.deepcopy(layer) for _ in range(N)]
+            self.norm = tf.keras.layers.LayerNorm(layer.size)
 
-        self.norm = tf.keras.layers.LayerNorm(size)
-        self.dropout_fn = tf.keras.layers.Dropout(dropout)
-        self.size = size
-
-    def call(self, x, memory, src_padding_mask=None, tgt_mask=None, tgt_padding_mask=None):
-        y = self.norm(x)
-        y, _ = self.self_attention(y, y, y, tgt_mask)
-        x = x + y
-
-        y = self.norm(x)
-        y, _ = self.cross_attention(y, memory, memory, src_padding_mask)
-        x = x + y
-
-        y = self.norm(x)
-        ff = self.feed_forward(y)
-        x = x + ff
-
-        return x
+        def call(self, x, memory, src_padding_mask, tgt_mask, tgt_padding_mask):
+            for layer in self.layers:
+                x = layer(x, memory, src_padding_mask, tgt_mask, tgt_padding_mask)
+            x = self.norm(x)
+            return x
 
 def positional_encoding(length, depth):
     ## REFERENCE: https://www.tensorflow.org/text/tutorials/transformer#the_embedding_and_positional_encoding_layer

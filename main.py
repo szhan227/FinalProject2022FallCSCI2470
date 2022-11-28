@@ -6,7 +6,8 @@ import numpy as np
 import pickle
 import tensorflow as tf
 from model import accuracy_function, loss_function, DishIngredientPredictorModel
-from decoder import RNN, Transformer
+from rnn import RNN
+from transformer import Transformer
 
 def compile_model(model):
     '''Compiles model'''
@@ -117,7 +118,7 @@ def parse_args(args=None):
 
 if __name__ == '__main__':
 
-    model = build_model(parse_args('--type rnn --epochs 1 --batch_size 100'.split()))
+    model = build_model(parse_args('--type transformer --epochs 1 --batch_size 100'.split()))
     model = model[0]
 
     dishes = [

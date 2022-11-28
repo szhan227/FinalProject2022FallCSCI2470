@@ -1,6 +1,9 @@
 import numpy as np
 import tensorflow as tf
 
+import transformer
+from preprocess import truncate
+
 
 class DishIngredientPredictorModel(tf.keras.Model):
 
@@ -14,12 +17,16 @@ class DishIngredientPredictorModel(tf.keras.Model):
 
 
     @tf.function
-    def call(self, dish_names, ingredient_names):
-        return self.predictor(dish_names, ingredient_names)
+    def call(self, dish_names, ingredient_names, src_padding_mask=None, tgt_padding_mask=None):
+        print('dish_names shape', dish_names.shape)
+        print('ingredient_names shape', ingredient_names.shape)
+        print('predictor type', type(self.predictor))
+        return self.predictor(dish_names, ingredient_names, src_padding_mask=src_padding_mask, tgt_padding_mask=tgt_padding_mask)
 
     def predict(self, dish_names):
+        if type(self.predictor) == transformer.Transformer:
+            dish_names = truncate(dish_names, self.predictor.window_size - 1)
         tokens = [self.src_w2i[word] for word in dish_names]
-        print(tokens)
         src_token = tf.convert_to_tensor(tokens)
         src_token = tf.expand_dims(src_token, axis=0)
 
@@ -37,22 +44,49 @@ class DishIngredientPredictorModel(tf.keras.Model):
         return tgt_token
 
     def encode(self, src_tokens):
+        print('show predictor type', type(self.predictor))
         return self.predictor.encode(src_tokens)
 
     def decode(self, tgt_inputs, encoder_state):
         return self.predictor.decode(tgt_inputs, encoder_state)
 
     def greedy_decode(self, src_tokens, max_len, start_symbol='<start>', end_symbol='<end>'):
-        hidden_output, hidden_state = self.encode(src_tokens)
-        ys = tf.convert_to_tensor([[self.tgt_w2i[start_symbol]]])
-        for i in range(max_len):
-            out = self.decode(ys, hidden_state)
-            # out = out.transpose(1, 0, 2)
-            next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
-            ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
-            if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
-                break
-        return ys
+
+        if type(self.predictor) == transformer.Transformer:
+
+            hidden_state = self.encode(src_tokens)
+            pad_idx = self.tgt_w2i['<pad>']
+            sentence = [self.tgt_w2i[start_symbol]]
+
+            for i in range(max_len):
+                sentence_pad = truncate(sentence, self.predictor.window_size - 1)
+                for i, word in enumerate(sentence_pad):
+                    if word == '<pad>':
+                        sentence_pad[i] = pad_idx
+                # print('sentence_pad', sentence_pad)
+                ys = tf.convert_to_tensor([sentence_pad])
+                out = self.decode(ys, hidden_state)
+                # out = out.transpose(1, 0, 2)
+                next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
+                next_word = tf.get_static_value(next_word[0])
+                sentence += [next_word]
+                if next_word == pad_idx:
+                    break
+            return ys
+
+        else:
+            hidden_output, hidden_state = self.encode(src_tokens)
+
+            sentence = [self.tgt_w2i[start_symbol]]
+            ys = tf.convert_to_tensor([sentence])
+            for i in range(max_len):
+                out = self.decode(ys, hidden_state)
+                # out = out.transpose(1, 0, 2)
+                next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
+                ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
+                if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
+                    break
+            return ys
 
     def compile(self, optimizer, loss, metrics):
         self.optimizer = optimizer
@@ -70,11 +104,13 @@ class DishIngredientPredictorModel(tf.keras.Model):
         total_loss = total_seen = total_correct = 0
         for index, end in enumerate(range(batch_size, len(train_ingredients)+1, batch_size)):
             start = end - batch_size
-            batch_dishes = train_dishes[start:end]
+            batch_dishes = train_dishes[start:end, :-1]
             decoder_input = train_ingredients[start:end, :-1]
             decoder_labels = train_ingredients[start:end, 1:]
+            src_padding_mask = tf.cast(tf.math.equal(batch_dishes, src_padding_index), tf.float32)
+            tgt_padding_mask = tf.cast(tf.math.equal(decoder_input, tgt_padding_index), tf.float32)
             with tf.GradientTape() as tape:
-                predictions = self.call(batch_dishes, decoder_input)
+                predictions = self.call(batch_dishes, decoder_input, src_padding_mask=src_padding_mask, tgt_padding_mask=tgt_padding_mask)
                 mask = decoder_labels != tgt_padding_index
                 loss = self.loss_function(predictions, decoder_labels, mask)
 

@@ -335,5 +335,5 @@ class PositionalEncoding(tf.keras.layers.Layer):
         pos_code = self.pos_encoding
         # print('In positional encoding: embdding shape', embdding.shape)
         # print('In positional encoding: pos_code shape', pos_code.shape)
-        return embdding + pos_code
+        return embdding + pos_code[:embdding.shape[1], :]
 

@@ -28,6 +28,9 @@ class DishIngredientPredictorModel(tf.keras.Model):
             dish_names = truncate(dish_names, self.predictor.window_size - 1)
         tokens = [self.src_w2i[word] for word in dish_names]
         src_token = tf.convert_to_tensor(tokens)
+
+        # to make src_token a 3D tensor [batch, window, embedding],
+        # where here batch is 1, since we only predict one dish.
         src_token = tf.expand_dims(src_token, axis=0)
 
         tgt_token = self.predict_token(src_token)
@@ -52,7 +55,8 @@ class DishIngredientPredictorModel(tf.keras.Model):
 
     def greedy_decode(self, src_tokens, max_len, start_symbol='<start>', end_symbol='<end>'):
 
-        if type(self.predictor) == transformer.Transformer:
+        if False:
+        # if type(self.predictor) == transformer.Transformer:
 
             hidden_state = self.encode(src_tokens)
             pad_idx = self.tgt_w2i['<pad>']
@@ -75,7 +79,8 @@ class DishIngredientPredictorModel(tf.keras.Model):
             return ys
 
         else:
-            hidden_output, hidden_state = self.encode(src_tokens)
+            hidden_state = self.encode(src_tokens)
+            # hidden_output, hidden_state = self.encode(src_tokens)
 
             sentence = [self.tgt_w2i[start_symbol]]
             ys = tf.convert_to_tensor([sentence])

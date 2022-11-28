@@ -47,7 +47,7 @@ class DishIngredientPredictorModel(tf.keras.Model):
         return tgt_token
 
     def encode(self, src_tokens):
-        print('show predictor type', type(self.predictor))
+        # print('show predictor type', type(self.predictor))
         return self.predictor.encode(src_tokens)
 
     def decode(self, tgt_inputs, encoder_state):
@@ -55,43 +55,21 @@ class DishIngredientPredictorModel(tf.keras.Model):
 
     def greedy_decode(self, src_tokens, max_len, start_symbol='<start>', end_symbol='<end>'):
 
-        if False:
-        # if type(self.predictor) == transformer.Transformer:
-
+        if type(self.predictor) == transformer.Transformer:
             hidden_state = self.encode(src_tokens)
-            pad_idx = self.tgt_w2i['<pad>']
-            sentence = [self.tgt_w2i[start_symbol]]
-
-            for i in range(max_len):
-                sentence_pad = truncate(sentence, self.predictor.window_size - 1)
-                for i, word in enumerate(sentence_pad):
-                    if word == '<pad>':
-                        sentence_pad[i] = pad_idx
-                # print('sentence_pad', sentence_pad)
-                ys = tf.convert_to_tensor([sentence_pad])
-                out = self.decode(ys, hidden_state)
-                # out = out.transpose(1, 0, 2)
-                next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
-                next_word = tf.get_static_value(next_word[0])
-                sentence += [next_word]
-                if next_word == pad_idx:
-                    break
-            return ys
-
         else:
-            hidden_state = self.encode(src_tokens)
-            # hidden_output, hidden_state = self.encode(src_tokens)
+            hidden_output, hidden_state = self.encode(src_tokens)
 
-            sentence = [self.tgt_w2i[start_symbol]]
-            ys = tf.convert_to_tensor([sentence])
-            for i in range(max_len):
-                out = self.decode(ys, hidden_state)
-                # out = out.transpose(1, 0, 2)
-                next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
-                ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
-                if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
-                    break
-            return ys
+        sentence = [self.tgt_w2i[start_symbol]]
+        ys = tf.convert_to_tensor([sentence])
+        for i in range(max_len):
+            out = self.decode(ys, hidden_state)
+            # out = out.transpose(1, 0, 2)
+            next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
+            ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
+            if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
+                break
+        return ys
 
     def compile(self, optimizer, loss, metrics):
         self.optimizer = optimizer

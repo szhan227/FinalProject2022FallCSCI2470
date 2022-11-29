@@ -70,8 +70,8 @@ def build_model(args):
         'transformer': Transformer
     }[args.type]
 
-    hidden_size = 256
-    window_size = 20
+    hidden_size = args.hidden_size
+    window_size = args.window_size
 
     predictor = predictor_class(src_vocab_size, tgt_vocab_size, hidden_size, window_size)
 

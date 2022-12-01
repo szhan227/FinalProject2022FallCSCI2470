@@ -68,7 +68,7 @@ class DishIngredientPredictorModel(tf.keras.Model):
         for i in range(max_len):
             out = self.decode(ys, hidden_state)
 
-            next_candidates = tf.math.top_k(out[:, -1, :], k=5).indices.numpy().tolist()[0]
+            next_candidates = tf.math.top_k(out[:, -1, :], k=20).indices.numpy().tolist()[0]
             to_add = None
             for next_word in next_candidates:
                 if next_word not in seen_ids:

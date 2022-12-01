@@ -26,7 +26,9 @@ class DishIngredientPredictorModel(tf.keras.Model):
     def predict(self, dish_names):
         if type(self.predictor) == transformer.Transformer:
             dish_names = truncate(dish_names, self.predictor.window_size - 1)
-        tokens = [self.src_w2i[word] for word in dish_names]
+
+        w2i = lambda dish: self.src_w2i[dish] if dish in self.src_w2i else self.src_w21['<unk>']
+        tokens = [w2i(word) for word in dish_names]
         src_token = tf.convert_to_tensor(tokens)
 
         # to make src_token a 3D tensor [batch, window, embedding],
@@ -39,11 +41,11 @@ class DishIngredientPredictorModel(tf.keras.Model):
             for each in sentence:
                 lst.append(self.tgt_i2w[tf.get_static_value(each)])
 
-        return ', '.join(lst[1:])
+        return ', '.join([ingredient for ingredient in lst[1:] if ingredient not in ['<end>', '<pad>', '<start>', '<unk>']])
 
     def predict_token(self, src_tokens):
         num_tokens = src_tokens.shape[0]
-        tgt_token = self.greedy_decode(src_tokens, max_len=num_tokens + 5)
+        tgt_token = self.greedy_decode(src_tokens, max_len=20)
         return tgt_token
 
     def encode(self, src_tokens):
@@ -60,15 +62,32 @@ class DishIngredientPredictorModel(tf.keras.Model):
         else:
             hidden_output, hidden_state = self.encode(src_tokens)
 
+        seen_ids = set()
         sentence = [self.tgt_w2i[start_symbol]]
         ys = tf.convert_to_tensor([sentence])
         for i in range(max_len):
             out = self.decode(ys, hidden_state)
-            # out = out.transpose(1, 0, 2)
-            next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
-            ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
-            if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
+
+            next_candidates = tf.math.top_k(out[:, -1, :], k=5).indices.numpy().tolist()[0]
+            to_add = None
+            for next_word in next_candidates:
+                if next_word not in seen_ids:
+                    seen_ids.add(next_word)
+                    to_add = next_word
+                    break
+            if to_add is None:
                 break
+            singleton = tf.convert_to_tensor([to_add])
+            singleton = tf.expand_dims(singleton, 0)
+            ys = tf.concat([ys, singleton], axis=1)
+            if to_add == self.tgt_w2i[end_symbol]:
+                break
+
+            ## Original code for greedy decoding, single word at a time, DO NOT REMOVE
+            # next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
+            # ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
+            # if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
+            #     break
         return ys
 
     def compile(self, optimizer, loss, metrics):

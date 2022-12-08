@@ -68,26 +68,26 @@ class DishIngredientPredictorModel(tf.keras.Model):
         for i in range(max_len):
             out = self.decode(ys, hidden_state)
 
-            next_candidates = tf.math.top_k(out[:, -1, :], k=20).indices.numpy().tolist()[0]
-            to_add = None
-            for next_word in next_candidates:
-                if next_word not in seen_ids:
-                    seen_ids.add(next_word)
-                    to_add = next_word
-                    break
-            if to_add is None:
-                break
-            singleton = tf.convert_to_tensor([to_add])
-            singleton = tf.expand_dims(singleton, 0)
-            ys = tf.concat([ys, singleton], axis=1)
-            if to_add == self.tgt_w2i[end_symbol]:
-                break
-
-            ## Original code for greedy decoding, single word at a time, DO NOT REMOVE
-            # next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
-            # ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
-            # if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
+            # next_candidates = tf.math.top_k(out[:, -1, :], k=20).indices.numpy().tolist()[0]
+            # to_add = None
+            # for next_word in next_candidates:
+            #     if next_word not in seen_ids:
+            #         seen_ids.add(next_word)
+            #         to_add = next_word
+            #         break
+            # if to_add is None:
             #     break
+            # singleton = tf.convert_to_tensor([to_add])
+            # singleton = tf.expand_dims(singleton, 0)
+            # ys = tf.concat([ys, singleton], axis=1)
+            # if to_add == self.tgt_w2i[end_symbol]:
+            #     break
+
+            # Original code for greedy decoding, single word at a time, DO NOT REMOVE
+            next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
+            ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
+            if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
+                break
         return ys
 
     def compile(self, optimizer, loss, metrics):

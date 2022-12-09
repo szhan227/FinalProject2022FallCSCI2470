@@ -34,6 +34,7 @@ import numpy as np
 import pandas as pd
 from collections import Counter
 import pickle
+from sklearn.model_selection import train_test_split 
 
 
 def truncate(arr, size):
@@ -163,11 +164,11 @@ def spacy_tokenization_for_X_Y(X, Y, save_to_file=False):
 
 def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_name='prep_data.p', data_size=None, min_frequency=50):
     if data is None:
-        X_train = [['Glazed', 'Finger', 'Wings'],
+        X = [['Glazed', 'Finger', 'Wings'],
                    ['Country', 'Scalloped', 'Potatoes', '&amp;', 'Ham', '(Crock', 'Pot)'],
                    ['Fruit', 'Dream', 'Cookies'], ['Tropical', 'Breakfast', 'Risotti'],
                    ['Linguine', 'W/', 'Olive,', 'Anchovy', 'and', 'Tuna', 'Sauce']]
-        Y_train = [['chicken-wings', 'sugar,', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water', 'lemon juice',
+        Y = [['chicken-wings', 'sugar,', 'cornstarch', 'salt', 'ground ginger', 'pepper', 'water', 'lemon juice',
                     'soy sauce'],
                    ['potatoes', 'onion', 'cooked ham', 'country gravy mix', 'cream of mushroom soup', 'water',
                     'cheddar cheese'],
@@ -178,20 +179,26 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_n
                    ['anchovy fillets', 'tuna packed in oil', 'kalamata olive', 'garlic cloves', 'fresh parsley',
                     'fresh lemon juice', 'salt %26 pepper', 'olive oil', 'linguine']]
     else:
-        X_train = data[0]
-        Y_train = data[1]
+        X = data[0]
+        Y = data[1]
 
     if data_size is not None:
-        X_train = X_train[:data_size]
-        Y_train = Y_train[:data_size]
+        X = X[:data_size]
+        Y = Y[:data_size]
 
     ingredient_word2idx = {}
     dish_word2idx = {}
     ingredient_vocab_size = 0
     dish_vocab_size = 0
 
-    preprocess_sentence_list(X_train, window_size)
-    preprocess_sentence_list(Y_train, window_size)
+    preprocess_sentence_list(X, window_size)
+    preprocess_sentence_list(Y, window_size)
+
+    X_train, X_test, Y_train, Y_test = train_test_split(X,Y,train_size = 0.99,random_state=42)
+
+    ## preprocess test set
+    # preprocess_sentence_list(X_test, window_size)
+    # preprocess_sentence_list(Y_test, window_size)
 
     src_word_count = Counter()
     tgt_word_count = Counter()
@@ -236,6 +243,8 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_n
 
     data_to_dump = {'X': X_train,
                     'Y': Y_train,
+                    'X_test': X_test,
+                    'Y_test': Y_test,
                     'dish_word2idx': dish_word2idx,
                     'dish_idx2word': dish_idx2word,
                     'dish_vocab_size': dish_vocab_size,
@@ -244,6 +253,7 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_n
                     'ingredient_vocab_size': ingredient_vocab_size,
                     'window_size': window_size
                     }
+
 
     if save_to_file:
         with open(file_name, 'wb') as processed_file:
@@ -295,10 +305,14 @@ if __name__ == '__main__':
     # Y = data['Y']
     #
     # d = preprocess_paired_data(data=(X, Y), save_to_file=True)
+    
+    
     X = d['X']
     Y = d['Y']
 
-    data = preprocess_paired_data(data=(X, Y), save_to_file=True, file_name='prep_data_10000.p', data_size=10000, min_frequency=10)
+    data = preprocess_paired_data(data=(X, Y), save_to_file=True, file_name='prep_data_train_test_split.p',
+                                  data_size=None, min_frequency=10) # restore this line later!!!
+
     print(data.keys())
     #
     # dish_idx2word = d['dish_idx2word']

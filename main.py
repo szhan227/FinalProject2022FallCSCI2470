@@ -35,7 +35,7 @@ def train_model(model, src_inputs, tgt_inputs, src_pad_idx, tgt_pad_idx, args, v
 
 
 def build_model(args):
-    with open('prep_data_10000.p', 'rb') as f:
+    with open('prep_data_train_test_split.p', 'rb') as f:
         data = pickle.load(f)
 
     train_size = -10000
@@ -88,6 +88,23 @@ def build_model(args):
     if False:
         train_model(model, src_train_inputs, tgt_train_inputs, src_w2i['<pad>'], tgt_w2i['<pad>'], args, (src_test_inputs, tgt_test_inputs))
 
+    if 'X_test' in data:
+        X_test = data['X_test']
+        Y_test = data['Y_test']
+
+        try:
+            for dish, ingredients in zip(X_test, Y_test):
+                print('dish', dish)
+                print('ingredients', ingredients)
+                prediction = model.predict(dish)
+                print('predicted ingredients', prediction)
+                inter = set(ingredients).intersection(set(prediction))
+                union = set(ingredients).union(set(prediction))
+                print('Jaccard Similarity:', len(inter) / len(union))
+                print()
+        except:
+            print('Error happens in batch test.')
+
     return model, (src_test_inputs, tgt_test_inputs)
 
 
@@ -122,6 +139,8 @@ if __name__ == '__main__':
     model = build_model(parse_args('--type rnn --nhead 3 --epochs 1 --batch_size 100'.split()))
     model = model[0]
 
+
+    print('---------Manual Test----------')
     dishes = [
         ['fried', 'rice'],
         ['pepper', 'steak'],

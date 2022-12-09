@@ -35,7 +35,7 @@ def train_model(model, src_inputs, tgt_inputs, src_pad_idx, tgt_pad_idx, args, v
 
 
 def build_model(args):
-    with open('prep_data_train_test_split.p', 'rb') as f:
+    with open('prep_data.p', 'rb') as f:
         data = pickle.load(f)
 
     train_size = -10000
@@ -136,7 +136,7 @@ def parse_args(args=None):
 
 if __name__ == '__main__':
 
-    model = build_model(parse_args('--type rnn --nhead 3 --epochs 1 --batch_size 100'.split()))
+    model = build_model(parse_args('--type transformer --nhead 3 --epochs 1 --batch_size 100'.split()))
     model = model[0]
 
 

@@ -68,32 +68,34 @@ class DishIngredientPredictorModel(tf.keras.Model):
         for i in range(max_len):
             out = self.decode(ys, hidden_state)
 
-            next_candidates = tf.math.top_k(out[:, -1, :], k=20).indices.numpy().tolist()[0]
-            to_add = None
-            for next_word in next_candidates:
-                if next_word not in seen_ids:
-                    seen_ids.add(next_word)
-                    to_add = next_word
-                    break
-            if to_add is None:
-                break
-            singleton = tf.convert_to_tensor([to_add])
-            singleton = tf.expand_dims(singleton, 0)
-            ys = tf.concat([ys, singleton], axis=1)
-            if to_add == self.tgt_w2i[end_symbol]:
-                break
-
-            ## Original code for greedy decoding, single word at a time, DO NOT REMOVE
-            # next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
-            # ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
-            # if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
+            # next_candidates = tf.math.top_k(out[:, -1, :], k=20).indices.numpy().tolist()[0]
+            # to_add = None
+            # for next_word in next_candidates:
+            #     if next_word not in seen_ids:
+            #         seen_ids.add(next_word)
+            #         to_add = next_word
+            #         break
+            # if to_add is None:
             #     break
+            # singleton = tf.convert_to_tensor([to_add])
+            # singleton = tf.expand_dims(singleton, 0)
+            # ys = tf.concat([ys, singleton], axis=1)
+            # if to_add == self.tgt_w2i[end_symbol]:
+            #     break
+
+            # Original code for greedy decoding, single word at a time, DO NOT REMOVE
+            next_word = tf.math.argmax(out[:, -1], axis=1, output_type=tf.int32)
+            ys = tf.concat([ys, tf.expand_dims(next_word, axis=1)], axis=1)
+            if self.tgt_i2w[tf.get_static_value(next_word[0])] == end_symbol:
+                break
         return ys
 
     def compile(self, optimizer, loss, metrics):
         self.optimizer = optimizer
         self.loss_function = loss
         self.accuracy_function = metrics[0]
+        self.similarity_function = metrics[1]
+        self.jaccard_similarity = metrics[2]
 
     def train(self, train_ingredients, train_dishes, src_padding_index, tgt_padding_index, batch_size=100):
 
@@ -121,6 +123,8 @@ class DishIngredientPredictorModel(tf.keras.Model):
 
             num_predictions = tf.reduce_sum(tf.cast(mask, tf.float32))
             accuracy = self.accuracy_function(predictions, decoder_labels, mask)
+            # similarity = self.similarity_function(predictions, decoder_labels, self)
+            jaccard_similarity = self.jaccard_similarity(predictions, decoder_labels)
 
             total_loss += loss
             total_seen += num_predictions
@@ -129,7 +133,7 @@ class DishIngredientPredictorModel(tf.keras.Model):
             avg_loss = total_loss / total_seen
             avg_acc = total_correct / total_seen
             avg_prp = np.exp(avg_loss)
-            print(f'\rTrain {index+1}/{num_batches} - loss: {avg_loss:.4f} - acc: {accuracy:.4f} - prp: {avg_prp:.4f}', end='')
+            print(f'\rTrain {index+1}/{num_batches} - loss: {avg_loss:.4f} - jaccard_similarity: {jaccard_similarity:.4f} - perplexity: {avg_prp:.4f}', end='')
 
         print()
 
@@ -140,6 +144,41 @@ def accuracy_function(prbs, labels, mask):
     correct_classes = tf.math.argmax(prbs, axis=-1, output_type=tf.int32) == labels
     accuracy = tf.reduce_mean(tf.boolean_mask(tf.cast(correct_classes, tf.float32), mask))
     return accuracy
+
+
+def jaccard_similarity(prbs, labels):
+    words_pred = tf.math.argmax(prbs, axis=-1, output_type=tf.int32)
+
+    redundant = {'<unk>', '<start>', '<end>'}
+
+    similarity = 0.0
+    for s1, s2 in zip(words_pred, labels):
+        words_unique = set(s1.numpy().tolist())
+        label_unique = set(s2.numpy().tolist())
+        words_unique = words_unique - redundant
+        label_unique = label_unique - redundant
+
+        similarity += len(words_unique & label_unique) / len(words_unique | label_unique)
+    return similarity / len(words_pred)
+
+
+def similarity_function(prbs, labels, model):
+    words_pred = tf.math.argmax(prbs, axis=-1, output_type=tf.int32)
+
+    words_pred_emb = model.predictor.get_embedding(words_pred)
+    labels_emb = model.predictor.get_embedding(labels)
+
+    words_pred_emb = tf.sort(words_pred_emb, axis=-1)
+    labels_emb = tf.sort(labels_emb, axis=-1)
+    # print('predction:', words_pred_emb)
+    # print('decoder_labels:', labels_emb)
+
+    sim = tf.keras.losses.CosineSimilarity()
+    sz = tf.shape(words_pred_emb)[0] * tf.shape(words_pred_emb)[1] * tf.shape(words_pred_emb)[2]
+    w = tf.reshape(words_pred_emb, sz)
+    l = tf.reshape(labels_emb, sz)
+    similarity = sim(w, l)
+    return similarity
 
 
 def loss_function(prbs, labels, mask):

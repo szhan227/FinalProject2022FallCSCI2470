@@ -85,7 +85,7 @@ def build_model(args):
 
     compile_model(model)
 
-    if False:
+    if True:
         train_model(model, src_train_inputs, tgt_train_inputs, src_w2i['<pad>'], tgt_w2i['<pad>'], args, (src_test_inputs, tgt_test_inputs))
 
     if 'X_test' in data:
@@ -145,8 +145,7 @@ if __name__ == '__main__':
         ['fried', 'rice'],
         ['pepper', 'steak'],
         ['chicken', 'soup'],
-        ['butter', 'pork'],
-        ['???', '?']
+        ['butter', 'pork']
     ]
     for dish in dishes:
         print(dish)

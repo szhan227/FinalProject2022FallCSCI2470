@@ -27,7 +27,7 @@ class DishIngredientPredictorModel(tf.keras.Model):
         if type(self.predictor) == transformer.Transformer:
             dish_names = truncate(dish_names, self.predictor.window_size - 1)
 
-        w2i = lambda dish: self.src_w2i[dish] if dish in self.src_w2i else self.src_w2i['<unk>']
+        w2i = lambda dish: self.src_w2i[dish] if dish in self.src_w2i else self.src_w21['<unk>']
         tokens = [w2i(word) for word in dish_names]
         src_token = tf.convert_to_tensor(tokens)
 

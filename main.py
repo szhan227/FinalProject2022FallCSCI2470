@@ -145,16 +145,13 @@ if __name__ == '__main__':
         ['fried', 'rice'],
         ['pepper', 'steak'],
         ['chicken', 'soup'],
-<<<<<<< Updated upstream
         ['butter', 'pork']
-=======
-        ['butter', 'pork'],
+
         ['orange','chicken'],
         ['apple','chicken'],
         ['veggie','dumplings'],
         ['chocolate','cookies'],
         ['meatloaf']
->>>>>>> Stashed changes
     ]
     for dish in dishes:
         print(dish)

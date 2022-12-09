@@ -27,7 +27,7 @@ class DishIngredientPredictorModel(tf.keras.Model):
         if type(self.predictor) == transformer.Transformer:
             dish_names = truncate(dish_names, self.predictor.window_size - 1)
 
-        w2i = lambda dish: self.src_w2i[dish] if dish in self.src_w2i else self.src_w21['<unk>']
+        w2i = lambda dish: self.src_w2i[dish] if dish in self.src_w2i else self.src_w2i['<unk>']
         tokens = [w2i(word) for word in dish_names]
         src_token = tf.convert_to_tensor(tokens)
 
@@ -134,6 +134,46 @@ class DishIngredientPredictorModel(tf.keras.Model):
             avg_acc = total_correct / total_seen
             avg_prp = np.exp(avg_loss)
             print(f'\rTrain {index+1}/{num_batches} - loss: {avg_loss:.4f} - jaccard_similarity: {jaccard_similarity:.4f} - perplexity: {avg_prp:.4f}', end='')
+
+        print()
+
+        return avg_loss, avg_acc, avg_prp
+
+
+    def test(self, train_ingredients, train_dishes, src_padding_index, tgt_padding_index, batch_size=100):
+
+        avg_loss = 0
+        avg_acc = 0
+        avg_prp = 0
+
+        num_batches = max(1, int(len(train_ingredients) / batch_size))
+
+        total_loss = total_seen = total_correct = 0
+        for index, end in enumerate(range(batch_size, len(train_ingredients)+1, batch_size)):
+            start = end - batch_size
+            batch_dishes = train_dishes[start:end, :-1]
+            decoder_input = train_ingredients[start:end, :-1]
+            decoder_labels = train_ingredients[start:end, 1:]
+            src_padding_mask = tf.cast(tf.math.equal(batch_dishes, src_padding_index), tf.float32)
+            tgt_padding_mask = tf.cast(tf.math.equal(decoder_input, tgt_padding_index), tf.float32)
+
+            predictions = self.call(batch_dishes, decoder_input, src_padding_mask=src_padding_mask, tgt_padding_mask=tgt_padding_mask)
+            mask = decoder_labels != tgt_padding_index
+            loss = self.loss_function(predictions, decoder_labels, mask)
+
+            num_predictions = tf.reduce_sum(tf.cast(mask, tf.float32))
+            accuracy = self.accuracy_function(predictions, decoder_labels, mask)
+            # similarity = self.similarity_function(predictions, decoder_labels, self)
+            jaccard_similarity = self.jaccard_similarity(predictions, decoder_labels)
+
+            total_loss += loss
+            total_seen += num_predictions
+            total_correct += accuracy
+
+            avg_loss = total_loss / total_seen
+            avg_acc = total_correct / total_seen
+            avg_prp = np.exp(avg_loss)
+            print(f'\rTest {index+1}/{num_batches} - loss: {avg_loss:.4f} - jaccard_similarity: {jaccard_similarity:.4f} - perplexity: {avg_prp:.4f}', end='')
 
         print()
 

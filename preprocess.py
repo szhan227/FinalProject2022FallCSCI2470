@@ -162,7 +162,7 @@ def spacy_tokenization_for_X_Y(X, Y, save_to_file=False):
     return X, Y
 
 
-def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_name='prep_data.p', data_size=None, min_frequency=50, test_file_name = 'prep_test_set.p'):
+def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_name='prep_data.p', data_size=None, min_frequency=50):
     if data is None:
         X = [['Glazed', 'Finger', 'Wings'],
                    ['Country', 'Scalloped', 'Potatoes', '&amp;', 'Ham', '(Crock', 'Pot)'],
@@ -243,6 +243,8 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_n
 
     data_to_dump = {'X': X_train,
                     'Y': Y_train,
+                    'X_test': X_test,
+                    'Y_test': Y_test,
                     'dish_word2idx': dish_word2idx,
                     'dish_idx2word': dish_idx2word,
                     'dish_vocab_size': dish_vocab_size,
@@ -252,20 +254,11 @@ def preprocess_paired_data(data=None, window_size=20, save_to_file=False, file_n
                     'window_size': window_size
                     }
 
-    test_data_to_dump = {
-        'X_test': X_test,
-        'Y_test': Y_test
-    }
 
     if save_to_file:
         with open(file_name, 'wb') as processed_file:
             pickle.dump(data_to_dump, processed_file)
-        
-        # dump test data to file
-        with open(test_file_name, 'wb') as processed_test_file:
-            pickle.dump(test_data_to_dump, processed_test_file)
-    else:
-        print('Generated test set(not dumped to file): ', X_test, Y_test, len(X_test), len(Y_test))
+
     return data_to_dump
 
 
@@ -317,7 +310,8 @@ if __name__ == '__main__':
     X = d['X']
     Y = d['Y']
 
-    data = preprocess_paired_data(data=(X, Y), save_to_file=True, file_name='prep_data_10000.p', data_size=10000, min_frequency=10) # restore this line later!!!
+    data = preprocess_paired_data(data=(X, Y), save_to_file=True, file_name='prep_data_train_test_split.p',
+                                  data_size=None, min_frequency=10) # restore this line later!!!
 
     print(data.keys())
     #

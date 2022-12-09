@@ -4,7 +4,7 @@ import numpy as np
 
 class Transformer(tf.keras.Model):
 
-    def __init__(self, src_vocab_size, tgt_vocab_size, hidden_size, window_size, **kwargs):
+    def __init__(self, src_vocab_size, tgt_vocab_size, hidden_size, window_size, nhead, **kwargs):
         super().__init__(**kwargs)
         self.src_vocab_size = src_vocab_size
         self.tgt_vocab_size = tgt_vocab_size
@@ -15,12 +15,12 @@ class Transformer(tf.keras.Model):
 
         self.encoder = TransformerBlock(
             self.hidden_size,
-            nhead=3,
+            nhead=nhead,
             type='encoder'
         )
         self.decoder = TransformerBlock(
             self.hidden_size,
-            nhead=3,
+            nhead=nhead,
             type='decoder'
         )
 
@@ -72,6 +72,8 @@ class Transformer(tf.keras.Model):
         output = self.decoder.decode(tgt_embedding, encoder_output)
         return self.classifier(output)
 
+    def get_embedding(self, words):
+        return self.tgt_encoding.embedding(words)
 
 class AttentionMatrix(tf.keras.layers.Layer):
 

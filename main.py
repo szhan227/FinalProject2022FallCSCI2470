@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 import pickle
 import tensorflow as tf
-from model import accuracy_function, loss_function, DishIngredientPredictorModel
+from model import accuracy_function, similarity_function, jaccard_similarity, loss_function, DishIngredientPredictorModel
 from rnn import RNN
 from transformer import Transformer
 
@@ -13,7 +13,7 @@ def compile_model(model):
     '''Compiles model'''
     model.compile(optimizer=tf.keras.optimizers.Adam(),
                   loss=loss_function,
-                  metrics=[accuracy_function])
+                  metrics=[accuracy_function, similarity_function, jaccard_similarity])
 
 
 def train_model(model, src_inputs, tgt_inputs, src_pad_idx, tgt_pad_idx, args, valid):
@@ -73,7 +73,7 @@ def build_model(args):
     hidden_size = args.hidden_size
     window_size = args.window_size
 
-    predictor = predictor_class(src_vocab_size, tgt_vocab_size, hidden_size, window_size)
+    predictor = predictor_class(src_vocab_size, tgt_vocab_size, hidden_size, window_size, nhead=args.nhead)
 
     model = DishIngredientPredictorModel(
         predictor,
@@ -106,6 +106,7 @@ def parse_args(args=None):
     parser.add_argument('--epochs',         type=int,   default=3,      help='Number of epochs used in training.')
     parser.add_argument('--lr',             type=float, default=1e-3,   help='Model\'s learning rate')
     parser.add_argument('--optimizer',      type=str,   default='adam', choices=['adam', 'rmsprop', 'sgd'], help='Model\'s optimizer')
+    parser.add_argument('--nhead',          type=int,   default=3,      help='Number of heads in the transformer model')
     parser.add_argument('--batch_size',     type=int,   default=100,    help='Model\'s batch size.')
     parser.add_argument('--hidden_size',    type=int,   default=256,    help='Hidden size used to instantiate the model.')
     parser.add_argument('--window_size',    type=int,   default=20,     help='Window size of text entries.')
@@ -118,7 +119,7 @@ def parse_args(args=None):
 
 if __name__ == '__main__':
 
-    model = build_model(parse_args('--type transformer --epochs 1 --batch_size 100'.split()))
+    model = build_model(parse_args('--type rnn --nhead 3 --epochs 1 --batch_size 100'.split()))
     model = model[0]
 
     dishes = [

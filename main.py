@@ -136,7 +136,7 @@ def parse_args(args=None):
 
 if __name__ == '__main__':
 
-    model = build_model(parse_args('--type transformer --nhead 3 --epochs 1 --batch_size 100'.split()))
+    model = build_model(parse_args('--type transformer --nhead 3 --epochs 15 --batch_size 100'.split()))
     model = model[0]
 
 
@@ -145,8 +145,13 @@ if __name__ == '__main__':
         ['fried', 'rice'],
         ['pepper', 'steak'],
         ['chicken', 'soup'],
-        ['butter', 'pork'],
-        ['???', '?']
+        ['butter', 'pork']
+
+        ['orange','chicken'],
+        ['apple','chicken'],
+        ['veggie','dumplings'],
+        ['chocolate','cookies'],
+        ['meatloaf']
     ]
     for dish in dishes:
         print(dish)
